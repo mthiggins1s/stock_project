@@ -3,7 +3,7 @@ class StocksController < ApplicationController
     if params[:search]
       stocks = Stock.where("symbol LIKE ? OR name LIKE ?", "%#{params[:search]}%", "%#{params[:search]}%")
     else
-      stocks = Stock.all.limit(50)
+      stocks = Stock.all.limit(4000)
     end
     render json: stocks
   end
