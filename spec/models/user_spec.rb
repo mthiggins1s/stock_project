@@ -42,21 +42,33 @@ RSpec.describe User, type: :model do
   end
 
   context "destroy user and everything dependent on it" do
-    let (:user) { create(:user) }
-    let (:user_id) { user.id }
+    let(:user) { create(:user) }
+    let(:user_id) { user.id }
 
     before do
       user.destroy
     end
 
-    # deletes user profile
     it "deletes profile" do
       profile = Profile.find_by(user_id: user_id)
       expect(profile).to be_nil
     end
-    # deletes user location
+
     it "deletes location" do
-  expect(Location.find_by(user_id: user_id)).to be_nil
+      expect(Location.find_by(user_id: user_id)).to be_nil
     end
+  end
+
+  # password
+  it "is invalid when password is nil" do
+    user = build(:user, password: nil)
+    expect(user).not_to be_valid
+    expect(user.errors[:password]).to be_present
+  end
+
+  # hashes the password
+  it "hashes the password" do
+    user = create(:user, password: "password")
+    expect(user.password_digest).not_to eq "password"
   end
 end

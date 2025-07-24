@@ -1,4 +1,5 @@
 class User < ApplicationRecord
+  has_secure_password
   # Associations
   has_one :location, dependent: :destroy
   has_one :profile, dependent: :destroy
