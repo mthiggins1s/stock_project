@@ -10,7 +10,15 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_07_23_165439) do
+ActiveRecord::Schema[8.0].define(version: 2025_07_24_165832) do
+  create_table "locations", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.string "address"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_locations_on_user_id"
+  end
+
   create_table "portfolio_stocks", force: :cascade do |t|
     t.integer "portfolio_id", null: false
     t.integer "stock_id", null: false
@@ -24,6 +32,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_23_165439) do
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "profiles", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.text "bio"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_profiles_on_user_id"
   end
 
   create_table "recently_vieweds", force: :cascade do |t|
@@ -53,8 +69,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_23_165439) do
     t.datetime "updated_at", null: false
   end
 
+  add_foreign_key "locations", "users"
   add_foreign_key "portfolio_stocks", "portfolios"
   add_foreign_key "portfolio_stocks", "stocks"
+  add_foreign_key "profiles", "users"
   add_foreign_key "recently_vieweds", "stocks"
   add_foreign_key "recently_vieweds", "users"
 end

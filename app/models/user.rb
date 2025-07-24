@@ -1,5 +1,9 @@
 class User < ApplicationRecord
-  # prevents user creation with null input
+  # Associations
+  has_one :location, dependent: :destroy
+  has_one :profile, dependent: :destroy
+
+  # Validations
   validates :username, presence: true, uniqueness: true, length: { minimum: 3, maximum: 30 }
   validate :validate_username
   validates :email, presence: true, uniqueness: true, length: { minimum: 5, maximum: 255 }, format: {
@@ -11,7 +15,7 @@ class User < ApplicationRecord
   private
 
   def validate_username
-    unless username =~ /\A[a-zA=Z0-9_]+\Z/
+    unless username =~ /\A[a-zA-Z0-9_]+\Z/
       errors.add(:username, "can only contain letters, numbers, and underscores, and must have one letter or number")
     end
   end
