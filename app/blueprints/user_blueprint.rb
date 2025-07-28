@@ -6,4 +6,8 @@ class UserBlueprint < Blueprinter::Base
   view :normal do
     fields :username
   end
+
+  view :profile do
+    association :location, blueprint: LocationBlueprint
+  end
 end

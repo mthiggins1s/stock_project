@@ -13,6 +13,8 @@ class User < ApplicationRecord
   validates :first_name, presence: true
   validates :last_name, presence: true
 
+  after_create :create_profile
+
   private
 
   def validate_username

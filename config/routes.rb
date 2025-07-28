@@ -1,9 +1,13 @@
 Rails.application.routes.draw do
+  get "profiles/show"
   get "sessions/create"
   scope "/" do
     post "login", to: "sessions#create"
   end
   resources :stocks, only: [ :index, :show ]
+  scope :profiles do
+    get ":username", to: "profiles#show"
+  end
 
   # Users routes
   get "/users", to: "users#index"
