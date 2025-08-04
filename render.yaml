@@ -1,12 +1,12 @@
 databases:
-  - name: stocktrackerapi
-    databaseName: stocktrackerapi
-    user: stocktrackerapi
+  - name: stock_tracker_api
+    databaseName: stock_tracker_api
+    user: stock_tracker_api
     plan: free
 
 services:
   - type: web
-    name: stocktrackerapi
+    name: stock_tracker_api
     runtime: ruby
     plan: free
     buildCommand: './bin/render-build.sh'
@@ -14,8 +14,8 @@ services:
     envVars:
       - key: DATABASE_URL
         fromDatabase:
-            name: stocktrackerapi
-            property: connectionString
+          name: stock_tracker_api
+          property: connectionString
       - key: RAILS_MASTER_KEY
         sync: false
       - key: WEB_CONCURRENCY
