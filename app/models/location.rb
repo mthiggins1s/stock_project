@@ -1,4 +1,7 @@
+# app/models/location.rb
 class Location < ApplicationRecord
   belongs_to :user
-  validates :address, presence: true
+  # Remove `validates :address, presence: true`
+  # Optional validations:
+  validates :address, length: { maximum: 255 }, allow_blank: true
 end
