@@ -1,20 +1,13 @@
 Rails.application.routes.draw do
-  get "profiles/show"
-  get "sessions/create"
-  scope "/" do
-    post "login", to: "sessions#create"
-  end
-  resources :stocks, only: [ :index, :show ]
-  scope :profiles do
-    get ":username", to: "profiles#show"
-  end
+  # Auth (canonical)
+  post "/login", to: "sessions#create"
 
-  # Users routes
-  get "/users", to: "users#index"
-  get "/users/:id", to: "users#show"
-  post "/users", to: "users#create"
-  put "/users/:id", to: "users#update"
-  delete "/users/:id", to: "users#destroy"
+  # Users (API-only; no HTML new/edit)
+  resources :users, except: %i[new edit]
 
-  resources :users
+  # Stocks (keep :show only if you really have it implemented)
+  resources :stocks, only: %i[index show]
+
+  # Profiles by username (one clear path; removes static /profiles/show)
+  get "/profiles/:username", to: "profiles#show", as: :profile
 end
