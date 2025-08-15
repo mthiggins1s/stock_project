@@ -11,3 +11,5 @@ Rails.application.routes.draw do
   # Profiles by username (one clear path; removes static /profiles/show)
   get "/profiles/:username", to: "profiles#show", as: :profile
 end
+
+# application routes were changed to better suite the API
