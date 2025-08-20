@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  scope defaults: { format: :json } do
   # Auth (canonical)
   post "/login", to: "sessions#create"
 
@@ -10,6 +11,5 @@ Rails.application.routes.draw do
 
   # Profiles by username (one clear path; removes static /profiles/show)
   get "/profiles/:username", to: "profiles#show", as: :profile
+  end
 end
-
-# application routes were changed to better suite the API

@@ -1,13 +1,17 @@
 class ProfilesController < ApplicationController
-  # Ensure user is authenticated before allowing access to any actions in this controller
   before_action :authenticate_request
 
+  # GET /profiles/:username
   def show
-    # Find user by username provided in URL parameters (e.g., /profiles/:username)
-    user = User.find_by(username: params[:username])
-    # Get the profile associated with this user
-    profile = user.profile
-    # Render the profile as JSON using the ProfileBlueprint serializer
-    render json: ProfileBlueprint.render(profile, view: :normal), status: :ok
+    # Eager-load to avoid N+1 queries and ensure location comes with the user/profile
+    user = User.includes(:profile, :location).find_by(username: params[:username])
+
+    # Return 404 if user or profile is missing (prevents 500s)
+    if user.nil? || user.profile.nil?
+      return render json: { error: "profile not found" }, status: :not_found
+    end
+
+    # Serialize the profile using your blueprint (keeps response shape consistent)
+    render json: ProfileBlueprint.render(user.profile, view: :normal), status: :ok
   end
 end
