@@ -1,23 +1,34 @@
+require "net/http"
+require "uri"
+require "json"
+
 class StocksController < ApplicationController
   def index
     request.format = :json
     url = URI("https://finnhub.io/api/v1/stock/symbol?exchange=US&token=#{ENV['FINNHUB_API_KEY']}")
     response = Net::HTTP.get(url)
-    stocks = JSON.parse(response)
+
+    begin
+      stocks = JSON.parse(response)
+    rescue JSON::ParserError
+      return render json: { error: "Invalid response from Finnhub" }, status: 502
+    end
 
     filtered = stocks.select do |s|
-      !s["symbol"].include?(".") &&
-      !s["symbol"].end_with?("W") &&
-      !s["symbol"].end_with?("U") &&
-      !s["symbol"].end_with?("R") &&
-      s["type"] == "Common Stock"
+      sym  = s["symbol"].to_s
+      type = s["type"].to_s
+
+      sym.present? &&
+      !sym.include?(".") &&
+      !sym.end_with?("W", "U", "R") &&
+      type == "Common Stock"
     end
 
     if params[:search].present?
       term = params[:search].downcase
       filtered = filtered.select do |s|
-        s["symbol"].downcase.include?(term) ||
-        (s["description"] && s["description"].downcase.include?(term))
+        s["symbol"].to_s.downcase.include?(term) ||
+        s["description"].to_s.downcase.include?(term)
       end
     end
 
@@ -28,6 +39,11 @@ class StocksController < ApplicationController
     symbol = params[:symbol]
     url = URI("https://finnhub.io/api/v1/quote?symbol=#{symbol}&token=#{ENV['FINNHUB_API_KEY']}")
     response = Net::HTTP.get(url)
-    render json: JSON.parse(response)
+
+    begin
+      render json: JSON.parse(response)
+    rescue JSON::ParserError
+      render json: { error: "Invalid quote response" }, status: 502
+    end
   end
 end
