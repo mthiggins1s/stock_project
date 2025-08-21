@@ -1,15 +1,22 @@
 Rails.application.routes.draw do
   scope defaults: { format: :json } do
-  # Auth (canonical)
-  post "/login", to: "sessions#create"
+    # --- Auth ---
+    post "/login", to: "sessions#create"
 
-  # Users (API-only; no HTML new/edit)
-  resources :users, except: %i[new edit]
+    # --- Users ---
+    resources :users, except: %i[new edit]
 
-  # Stocks (keep :show only if you really have it implemented)
-  resources :stocks, only: %i[index show]
+    # --- Stocks (public) ---
+    resources :stocks, only: %i[index] do
+      member do
+        get :quote  # /stocks/:symbol/quote
+      end
+    end
 
-  # Profiles by username (one clear path; removes static /profiles/show)
-  get "/profiles/:username", to: "profiles#show", as: :profile
+    # --- Portfolio (JWT protected) ---
+    resources :portfolios, only: %i[index create destroy]
+
+    # --- Profiles ---
+    get "/profiles/:username", to: "profiles#show", as: :profile
   end
 end
