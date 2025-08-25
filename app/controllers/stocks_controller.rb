@@ -3,56 +3,74 @@ require "uri"
 require "json"
 
 class StocksController < ApplicationController
-  # ✅ Updated base URL (RapidAPI redirect target)
-  YAHOO_BASE = "https://api2.apidatacenter.com/api/v1"
+  BASE_URL = "https://www.alphavantage.co/query"
+  USE_MOCK = false # 🔥 flip to true for fake prices during dev
 
+  # GET /stocks
   def index
     request.format = :json
-    symbols = "AAPL,TSLA,MSFT,AMZN,GOOG"
+    symbols = %w[AAPL TSLA MSFT AMZN GOOG]
 
-    url = URI("#{YAHOO_BASE}/markets/quote?symbols=#{symbols}")
-    response = make_request(url)
-
-    if response
-      parsed = JSON.parse(response)
-      data = parsed["body"] || []
-
-      stocks = data.map do |s|
-        {
-          symbol: s["symbol"],
-          name: s["shortName"] || s["longName"],
-          price: s["regularMarketPrice"]
-        }
-      end
-
-      if params[:search].present?
-        term = params[:search].downcase
-        stocks = stocks.select do |s|
-          s[:symbol].to_s.downcase.include?(term) ||
-          s[:name].to_s.downcase.include?(term)
-        end
-      end
-
-      render json: stocks.take(50)
-    else
-      render json: { error: "Failed to fetch stock list" }, status: 502
+    if USE_MOCK
+      stocks = symbols.map { |s| { symbol: s, price: rand(100..500) + rand.round(2), mock: true } }
+      render json: stocks and return
     end
+
+    key = Rails.application.credentials.dig(:alpha_vantage, :key)
+
+    stocks = symbols.map do |symbol|
+      url = URI("#{BASE_URL}?function=GLOBAL_QUOTE&symbol=#{symbol}&apikey=#{key}")
+      response = make_request(url)
+
+      if response
+        parsed = JSON.parse(response)
+
+        # ✅ Handle rate limit or invalid response
+        if parsed["Note"] || parsed["Information"]
+          Rails.logger.warn "⚠️ AlphaVantage issue for #{symbol}: #{parsed.inspect}"
+          { symbol: symbol, price: rand(100..500) + rand.round(2), mock: true }
+        else
+          quote = parsed["Global Quote"]
+          {
+            symbol: symbol,
+            price: quote ? quote["05. price"].to_f : nil
+          }
+        end
+      else
+        { symbol: symbol, price: nil }
+      end
+    end
+
+    render json: stocks
   end
 
-  def quote
-    symbol = params[:id] || params[:symbol]
-    url = URI("#{YAHOO_BASE}/markets/quote?symbols=#{symbol}")
+  # GET /stocks/:id
+  def show
+    symbol = params[:id]
+
+    if USE_MOCK
+      render json: { symbol: symbol, price: rand(100..500) + rand.round(2), mock: true } and return
+    end
+
+    key = Rails.application.credentials.dig(:alpha_vantage, :key)
+    url = URI("#{BASE_URL}?function=GLOBAL_QUOTE&symbol=#{symbol}&apikey=#{key}")
     response = make_request(url)
 
     if response
       parsed = JSON.parse(response)
-      stock = parsed["body"]&.first
 
-      if stock
+      # ✅ Handle rate limit or invalid response
+      if parsed["Note"] || parsed["Information"]
+        Rails.logger.warn "⚠️ AlphaVantage issue for #{symbol}: #{parsed.inspect}"
+        render json: { symbol: symbol, price: rand(100..500) + rand.round(2), mock: true } and return
+      end
+
+      quote = parsed["Global Quote"]
+
+      if quote && quote["05. price"]
         render json: {
-          symbol: stock["symbol"],
-          name: stock["shortName"] || stock["longName"],
-          price: stock["regularMarketPrice"]
+          symbol: quote["01. symbol"],
+          price: quote["05. price"].to_f
         }
       else
         render json: { error: "Stock not found" }, status: 404
@@ -69,18 +87,10 @@ class StocksController < ApplicationController
 
     http = Net::HTTP.new(url.host, url.port)
     http.use_ssl = true
-
     request = Net::HTTP::Get.new(url)
-    request["X-RapidAPI-Key"]  = ENV["YAHOO_API_KEY"]
-    request["X-RapidAPI-Host"] = "api2.apidatacenter.com"   # ✅ direct host
 
-    Rails.logger.info "🔎 Yahoo Request URL: #{url}"
-    Rails.logger.info "🔎 Yahoo Request Headers: #{request.to_hash}"
-
+    Rails.logger.info "🔎 Alpha Request URL: #{url}"
     response = http.request(request)
-
-    Rails.logger.info "🔎 Yahoo Response Code: #{response.code}"
-    Rails.logger.info "🔎 Yahoo Response Body: #{response.body[0..200]}..." # preview
 
     case response
     when Net::HTTPSuccess
