@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_07_24_225218) do
+ActiveRecord::Schema[8.0].define(version: 2025_08_28_222759) do
   create_table "locations", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "address"
@@ -32,6 +32,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_24_225218) do
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["user_id"], name: "index_portfolios_on_user_id"
   end
 
   create_table "profiles", force: :cascade do |t|
@@ -68,11 +70,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_24_225218) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "password_digest"
+    t.string "public_id"
+    t.index ["public_id"], name: "index_users_on_public_id", unique: true
   end
 
   add_foreign_key "locations", "users"
   add_foreign_key "portfolio_stocks", "portfolios"
   add_foreign_key "portfolio_stocks", "stocks"
+  add_foreign_key "portfolios", "users"
   add_foreign_key "profiles", "users"
   add_foreign_key "recently_vieweds", "stocks"
   add_foreign_key "recently_vieweds", "users"
