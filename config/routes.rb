@@ -7,7 +7,11 @@ Rails.application.routes.draw do
     resources :users, except: %i[new edit]
 
     # --- Stocks (public) ---
-    resources :stocks, only: %i[index show]
+    resources :stocks, only: %i[index show] do
+      member do
+        get :candles   # ➡️ /stocks/:id/candles
+      end
+    end
 
     # --- Portfolio (JWT protected) ---
     resources :portfolios, only: %i[index create destroy]
