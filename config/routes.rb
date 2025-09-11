@@ -3,6 +3,9 @@ Rails.application.routes.draw do
     # --- Auth ---
     post "/login", to: "sessions#create"
 
+    # --- Current User ---
+    get "/me", to: "users#me"
+
     # --- Users ---
     resources :users, except: %i[new edit]
 
@@ -17,7 +20,7 @@ Rails.application.routes.draw do
     resources :portfolios, only: %i[index create destroy] do
       collection do
         get :candles, to: "stocks#portfolio_candles"
-        get "/portfolio/summary", to: "stocks#portfolio_summary"
+        get :summary, to: "stocks#portfolio_summary"
       end
     end
 
