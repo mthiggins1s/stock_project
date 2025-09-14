@@ -23,9 +23,15 @@ class ProfilesController < ApplicationController
 
   # GET /profiles/public/:public_id/portfolio
   def portfolio
-    user = User.find_by!(public_id: params[:public_id])
-    stocks = Stock.joins(:portfolios).where(portfolios: { user_id: user.id }).distinct
+  user = User.find_by!(public_id: params[:public_id])
+  portfolio = user.portfolios.first
 
-    render json: StockBlueprint.render(stocks)
+  if portfolio.nil?
+    return render json: { error: "portfolio not found" }, status: :not_found
+  end
+
+  stocks = portfolio.stocks
+
+  render json: StockBlueprint.render(stocks, view: :detailed), status: :ok
   end
 end

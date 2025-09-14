@@ -16,7 +16,7 @@ Rails.application.routes.draw do
       end
     end
 
-    # --- Portfolio ---
+    # --- Portfolio (private, requires JWT) ---
     resources :portfolios, only: %i[index create destroy] do
       collection do
         get :candles, to: "stocks#portfolio_candles"
@@ -24,7 +24,7 @@ Rails.application.routes.draw do
       end
     end
 
-    # --- Profiles ---
+    # --- Profiles (public access via public_id) ---
     get "/profiles/:username", to: "profiles#show", as: :profile
     get "/profiles/public/:public_id", to: "profiles#show_public"
     get "/profiles/public/:public_id/portfolio", to: "profiles#portfolio"

@@ -4,7 +4,8 @@ class User < ApplicationRecord
   # Associations
   has_one :location, dependent: :destroy
   has_one :profile,  dependent: :destroy
-  has_many :portfolios, dependent: :destroy   # 👈 add this
+  has_many :portfolios, dependent: :destroy
+  has_many :stocks, through: :portfolios
 
   # Normalize inputs before we validate (trims & downcases)
   before_validation :normalize_identity_fields
