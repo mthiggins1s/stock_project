@@ -1,7 +1,7 @@
 class ProfilesController < ApplicationController
   before_action :authenticate_request, except: [ :show_public, :portfolio ]
 
-  # GET /profiles/:username (existing)
+  # GET /profiles/:username
   def show
     user = User.includes(:profile, :location).find_by(username: params[:username])
 
@@ -18,23 +18,14 @@ class ProfilesController < ApplicationController
     render json: {
       public_id: user.public_id,
       created_at: user.created_at
-      # 👆 only safe info, no personal data
     }
   end
 
   # GET /profiles/public/:public_id/portfolio
   def portfolio
     user = User.find_by!(public_id: params[:public_id])
+    stocks = Stock.joins(:portfolios).where(portfolios: { user_id: user.id }).distinct
 
-    # Get all stocks from all portfolios owned by this user
-    stocks = user.portfolios.includes(:stocks).flat_map(&:stocks).uniq.map do |stock|
-      {
-        symbol: stock.symbol,
-        name: stock.name,
-        price: stock.current_price
-      }
-    end
-
-    render json: stocks
+    render json: StockBlueprint.render(stocks)
   end
 end

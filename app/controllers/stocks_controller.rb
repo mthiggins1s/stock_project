@@ -18,13 +18,13 @@ class StocksController < ApplicationController
 
     if USE_MOCK
       stocks = symbols.map do |s|
-        { symbol: s, name: s, price: rand(100..500) + rand.round(2), change: 0, change_percent: 0, logo_url: nil, mock: true }
+        Stock.new(symbol: s, name: s, current_price: rand(100..500) + rand.round(2))
       end
-      render json: stocks and return
+      render json: StockBlueprint.render(stocks) and return
     end
 
     stocks = symbols.map { |symbol| fetch_stock(symbol, key) }.compact
-    render json: stocks
+    render json: StockBlueprint.render(stocks)
   end
 
   # GET /stocks/:id
@@ -34,8 +34,8 @@ class StocksController < ApplicationController
 
     stock = fetch_stock(symbol, key)
 
-    if stock && stock[:price].present?
-      render json: stock
+    if stock && stock.current_price.present?
+      render json: StockBlueprint.render(stock)
     else
       render json: { error: "Stock not found" }, status: 404
     end
@@ -88,7 +88,7 @@ class StocksController < ApplicationController
     render json: all_candles
   end
 
-  # ✅ NEW: GET /portfolio/summary
+  # GET /portfolio/summary
   def portfolio_summary
     key = ENV["POLYGON_API_KEY"]
     portfolio = JSON.parse(params[:symbols] || "[]")
@@ -99,14 +99,14 @@ class StocksController < ApplicationController
 
     portfolio.each do |symbol|
       stock = fetch_stock(symbol, key)
-      next unless stock && stock[:price]
+      next unless stock && stock.current_price
 
-      total_value += stock[:price]
+      total_value += stock.current_price.to_f
 
-      if stock[:change].to_f > 0
-        total_gains += stock[:change].to_f
+      if stock.change.to_f > 0
+        total_gains += stock.change.to_f
       else
-        total_losses += stock[:change].to_f
+        total_losses += stock.change.to_f
       end
     end
 
@@ -132,14 +132,14 @@ class StocksController < ApplicationController
     ref_data = ref_res ? JSON.parse(ref_res)["results"] : {}
 
     if snapshot_data
-      {
+      Stock.new(
         symbol: snapshot_data["ticker"],
         name: ref_data["name"] || snapshot_data["ticker"],
-        price: snapshot_data.dig("lastTrade", "p") || snapshot_data.dig("day", "c"),
+        current_price: snapshot_data.dig("lastTrade", "p") || snapshot_data.dig("day", "c"),
         change: snapshot_data["todaysChange"],
         change_percent: snapshot_data["todaysChangePerc"],
         logo_url: ref_data.dig("branding", "logo_url")
-      }
+      )
     else
       nil
     end

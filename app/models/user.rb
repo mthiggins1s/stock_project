@@ -45,7 +45,8 @@ class User < ApplicationRecord
     errors.add(:username, "may only contain letters, numbers, and underscores")
   end
 
+  # 👇 Generate a unique public_id before saving
   def generate_public_id
-    self.public_id = SecureRandom.hex(6) if public_id.blank?
+    self.public_id ||= SecureRandom.uuid
   end
 end

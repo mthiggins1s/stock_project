@@ -1,8 +1,7 @@
-# frozen_string_literal: true
-
 class ProfileBlueprint < Blueprinter::Base
   identifier :id
-  fields :bio
+
+  fields :bio, :avatar_url, :created_at
 
   view :normal do
     association :user, blueprint: UserBlueprint, view: :profile
