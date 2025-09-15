@@ -1,24 +1,41 @@
-[
-  {
-    "id": 12,
-    "shares": 10,
-    "avg_cost": 180.25,
-    "stock": {
-      "id": 5,
-      "symbol": "AAPL",
-      "name": "Apple Inc",
-      "current_price": 185.42
+class ProfilesController < ApplicationController
+  before_action :authenticate_request, except: [ :show_public, :portfolio ]
+
+  # GET /profiles/:username
+  def show
+    user = User.includes(:profile, :location).find_by(username: params[:username])
+
+    if user.nil? || user.profile.nil?
+      return render json: { error: "profile not found" }, status: :not_found
+    end
+
+    render json: ProfileBlueprint.render(user.profile, view: :normal), status: :ok
+  end
+
+  # GET /profiles/public/:public_id
+  def show_public
+    user = User.find_by!(public_id: params[:public_id])
+    render json: {
+      public_id: user.public_id,
+      created_at: user.created_at
     }
-  },
-  {
-    "id": 13,
-    "shares": 5,
-    "avg_cost": 250.00,
-    "stock": {
-      "id": 7,
-      "symbol": "TSLA",
-      "name": "Tesla Inc",
-      "current_price": 245.11
+  end
+
+# GET /profiles/public/:public_id/portfolio
+def portfolio
+  user = User.find_by!(public_id: params[:public_id])
+
+  portfolios = user.portfolios.includes(:stock)
+
+  if portfolios.empty?
+    return render json: { error: "portfolio not found" }, status: :not_found
+  end
+
+  render json: portfolios.as_json(
+    only: [ :id, :shares, :avg_cost ],
+    include: {
+      stock: { only: [ :id, :symbol, :name, :current_price ] }
     }
-  }
-]
+  ), status: :ok
+end
+end
