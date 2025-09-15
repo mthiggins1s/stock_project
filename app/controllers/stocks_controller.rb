@@ -165,6 +165,9 @@ class StocksController < ApplicationController
     when Net::HTTPRedirection
       location = URI(response["location"])
       make_request(location, limit - 1)
+    when Net::HTTPNotFound
+      # 🔇 Ignore 404s (missing tickers/logos) quietly
+      nil
     else
       Rails.logger.warn "⚠️ Request failed for #{url} -> #{response.code} #{response.message}"
       nil
