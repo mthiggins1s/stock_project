@@ -1,6 +1,7 @@
 require "net/http"
 require "uri"
 require "json"
+require "ostruct"
 
 class StocksController < ApplicationController
   SNAPSHOT_BASE   = "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers"
@@ -18,7 +19,14 @@ class StocksController < ApplicationController
 
     if USE_MOCK
       stocks = symbols.map do |s|
-        Stock.new(symbol: s, name: s, current_price: rand(100..500) + rand.round(2))
+        OpenStruct.new(
+          symbol: s,
+          name: s,
+          current_price: rand(100..500) + rand.round(2),
+          change: rand(-5.0..5.0).round(2),
+          change_percent: rand(-10.0..10.0).round(2),
+          logo_url: nil
+        )
       end
       render json: StockBlueprint.render(stocks) and return
     end
@@ -131,18 +139,16 @@ class StocksController < ApplicationController
     snapshot_data = JSON.parse(snapshot_res)["ticker"]
     ref_data = ref_res ? JSON.parse(ref_res)["results"] : {}
 
-    if snapshot_data
-      Stock.new(
-        symbol: snapshot_data["ticker"],
-        name: ref_data["name"] || snapshot_data["ticker"],
-        current_price: snapshot_data.dig("lastTrade", "p") || snapshot_data.dig("day", "c"),
-        change: snapshot_data["todaysChange"],
-        change_percent: snapshot_data["todaysChangePerc"],
-        logo_url: ref_data.dig("branding", "logo_url")
-      )
-    else
-      nil
-    end
+    return nil unless snapshot_data
+
+    OpenStruct.new(
+      symbol: snapshot_data["ticker"],
+      name: ref_data["name"] || snapshot_data["ticker"],
+      current_price: snapshot_data.dig("lastTrade", "p") || snapshot_data.dig("day", "c"),
+      change: snapshot_data["todaysChange"],
+      change_percent: snapshot_data["todaysChangePerc"],
+      logo_url: ref_data.dig("branding", "logo_url")
+    )
   end
 
   def make_request(url, limit = 5)

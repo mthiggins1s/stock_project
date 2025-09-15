@@ -5,25 +5,43 @@ class UsersController < ApplicationController
 
   # === CURRENT USER ===
   def me
-    render json: UserBlueprint.render(@current_user, view: :normal), status: :ok
+    render json: {
+      id:         @current_user.id,
+      username:   @current_user.username,
+      first_name: @current_user.first_name,
+      last_name:  @current_user.last_name,
+      public_id:  @current_user.public_id
+    }, status: :ok
   end
 
-  # === LIST (safe) ===
+  # === LIST (safe)
   def index
-    users = User.select(:id, :username, :first_name, :last_name).order(:id)
+    users = User.select(:id, :username, :first_name, :last_name, :public_id).order(:id)
     render json: users, status: :ok
   end
 
-  # === SHOW (consistent shape) ===
+  # === SHOW
   def show
-    render json: UserBlueprint.render(@user, view: :normal), status: :ok
+    render json: {
+      id:         @user.id,
+      username:   @user.username,
+      first_name: @user.first_name,
+      last_name:  @user.last_name,
+      public_id:  @user.public_id
+    }, status: :ok
   end
 
-  # === CREATE (signup) ===
+  # === CREATE (signup)
   def create
     user = User.new(user_params)
     if user.save
-      render json: UserBlueprint.render(user, view: :normal), status: :created
+      render json: {
+        id:         user.id,
+        username:   user.username,
+        first_name: user.first_name,
+        last_name:  user.last_name,
+        public_id:  user.public_id
+      }, status: :created
     else
       render json: {
         messages: user.errors.full_messages,
@@ -32,10 +50,16 @@ class UsersController < ApplicationController
     end
   end
 
-  # === UPDATE ===
+  # === UPDATE
   def update
     if @user.update(user_params)
-      render json: UserBlueprint.render(@user, view: :normal), status: :ok
+      render json: {
+        id:         @user.id,
+        username:   @user.username,
+        first_name: @user.first_name,
+        last_name:  @user.last_name,
+        public_id:  @user.public_id
+      }, status: :ok
     else
       render json: {
         messages: @user.errors.full_messages,
@@ -44,7 +68,7 @@ class UsersController < ApplicationController
     end
   end
 
-  # === DESTROY ===
+  # === DESTROY
   def destroy
     @user.destroy!
     head :no_content
