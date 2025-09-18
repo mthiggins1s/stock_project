@@ -1,17 +1,9 @@
 class UserBlueprint < Blueprinter::Base
-  identifier :id
+  identifier :public_id
 
-  # Base fields (safe to expose generally)
-  fields :username, :first_name, :last_name, :public_id
+  fields :username, :first_name, :last_name, :email, :created_at, :updated_at
 
-  view :normal do
-    # Logged-in user sees email
-    fields :email
-  end
-
-  view :profile do
-    # Public-facing profile view
-    fields :username, :first_name, :last_name, :public_id
-    association :location, blueprint: LocationBlueprint
+  view :extended do
+    association :portfolios, blueprint: PortfolioBlueprint
   end
 end

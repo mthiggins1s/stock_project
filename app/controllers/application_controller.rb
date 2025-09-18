@@ -1,38 +1,44 @@
 class ApplicationController < ActionController::API
-  # --- Uniform auth errors as JSON 401s ---
-  rescue_from JWT::ExpiredSignature do
-    render json: { error: "token expired" }, status: :unauthorized
-  end
+  include ActionController::MimeResponds
 
-  rescue_from JWT::DecodeError do
-    render json: { error: "unauthorized" }, status: :unauthorized
-  end
+  before_action :set_default_format
+  before_action :authenticate_request
 
   private
 
-  # Call this in controllers as a before_action to protect endpoints
+  def set_default_format
+    request.format = :json
+  end
+
+  def jwt_encode(payload, exp = 24.hours.from_now)
+    payload[:exp] = exp.to_i
+    JWT.encode(payload, Rails.application.secret_key_base)
+  end
+
+  def jwt_decode(token)
+    decoded = JWT.decode(token, Rails.application.secret_key_base, true, { algorithm: "HS256" })[0]
+    HashWithIndifferentAccess.new(decoded)
+  rescue JWT::DecodeError => e
+    Rails.logger.error "JWT Decode Error: #{e.message}"
+    nil
+  end
+
   def authenticate_request
-    # Extract Authorization header
-    header = request.headers["Authorization"].to_s
-    Rails.logger.debug "🔎 Raw Authorization header: #{header.inspect}"
+  header = request.headers["Authorization"]
+  token  = header.split(" ").last if header.present?
 
-    # Normalize (case-insensitive, strip "Bearer ")
-    token = header.to_s.sub(/^Bearer\s+/i, "").strip
-    Rails.logger.debug "🔎 Extracted token: #{token.present? ? token[0..15] + '...' : 'nil'}"
+  decoded = jwt_decode(token)
+  Rails.logger.debug "Decoded JWT: #{decoded.inspect}"
 
-    raise JWT::DecodeError, "missing token" if token.blank?
+  if decoded
+    user_id = decoded[:user_id] || decoded["user_id"]
+    Rails.logger.debug "Trying to find user with id=#{user_id}"
+    @current_user = User.find_by(id: user_id)
+    Rails.logger.debug "Current User: #{@current_user.inspect}"
+  end
 
-    # Decode + verify signature & expiration
-    payload = JWT.decode(
-      token,
-      Rails.application.secret_key_base, # must match encoding secret
-      true,                              # verify signature
-      { algorithm: "HS256", verify_expiration: true }
-    ).first
+  # binding.break   # 👈 this pauses execution in Rails 7/8 with the debug gem
 
-    Rails.logger.debug "✅ Decoded JWT payload: #{payload.inspect}"
-
-    @current_user = User.find(payload["user_id"])
-    Rails.logger.debug "✅ Authenticated user: #{@current_user.username} (ID=#{@current_user.id})"
+  render json: { error: "unauthorized" }, status: :unauthorized unless @current_user
   end
 end

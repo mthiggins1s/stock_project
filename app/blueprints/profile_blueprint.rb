@@ -1,9 +1,7 @@
 class ProfileBlueprint < Blueprinter::Base
   identifier :id
 
-  fields :bio, :avatar_url, :created_at
+  fields :bio, :avatar_url, :created_at, :updated_at
 
-  view :normal do
-    association :user, blueprint: UserBlueprint, view: :profile
-  end
+  association :location, blueprint: LocationBlueprint
 end

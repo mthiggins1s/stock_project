@@ -1,58 +1,27 @@
 class User < ApplicationRecord
   has_secure_password
 
-  # Associations
-  has_one :location, dependent: :destroy
-  has_one :profile,  dependent: :destroy
+  has_one :profile, dependent: :destroy
   has_many :portfolios, dependent: :destroy
-  has_many :stocks, through: :portfolios
+  has_many :portfolio_stocks, through: :portfolios
+  has_many :stocks, through: :portfolio_stocks
+  has_many :recently_vieweds, dependent: :destroy
 
-  # Normalize inputs before we validate (trims & downcases)
-  before_validation :normalize_identity_fields
-  before_create :generate_public_id   # 👈 ensure public_id is set
+  validates :username, presence: true, uniqueness: true
+  validates :email, presence: true, uniqueness: true
+  validates :first_name, :last_name, presence: true
+  validates :public_id, presence: true, uniqueness: true
 
-  # Validations...
-  validates :username,
-            presence: true,
-            uniqueness: { case_sensitive: false },
-            length: { minimum: 3, maximum: 30 }
-  validate  :validate_username
-
-  validates :email,
-            presence: true,
-            uniqueness: { case_sensitive: false },
-            length: { minimum: 5, maximum: 255 },
-            format: { with: URI::MailTo::EMAIL_REGEXP }
-
-  validates :first_name, presence: true
-  validates :last_name,  presence: true
-
-  after_create :ensure_profile_and_location
-
-  # 👇 Always ensure user has a default portfolio
-  def default_portfolio
-    portfolios.first_or_create!(name: "Default Portfolio")
-  end
+  before_validation :generate_public_id, on: :create
+  after_create :create_profile
 
   private
 
-  def ensure_profile_and_location
-    create_profile!  unless profile
-    create_location! unless location
-  end
-
-  def normalize_identity_fields
-    self.username = username.to_s.strip.downcase.presence
-    self.email    = email.to_s.strip.downcase.presence
-  end
-
-  def validate_username
-    return if username.present? && username.match?(/\A[a-zA-Z0-9_]+\z/)
-    errors.add(:username, "may only contain letters, numbers, and underscores")
-  end
-
-  # 👇 Generate a unique public_id before saving
   def generate_public_id
     self.public_id ||= SecureRandom.uuid
+  end
+
+  def create_profile
+    Profile.create!(user: self)
   end
 end
