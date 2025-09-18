@@ -3,52 +3,53 @@ class PortfoliosController < ApplicationController
 
   # GET /portfolios
   def index
-    holdings = @current_user.portfolio_stocks.includes(:stock).map do |ps|
-      {
-        id: ps.id,
-        symbol: ps.stock.symbol,
-        name: ps.stock.name,
-        shares: ps.shares,
-        avg_cost: ps.avg_cost,
-        current_price: ps.stock.current_price,
-        gain_loss: ps.shares * (ps.stock.current_price.to_f - ps.avg_cost.to_f)
-      }
-    end
+    portfolio = @current_user.portfolios.first_or_create!
+    holdings = portfolio.portfolio_stocks.includes(:stock)
 
-    render json: holdings
+    render json: holdings.as_json(
+      include: {
+        stock: {
+          only: [ :id, :symbol, :name, :current_price ]
+        }
+      },
+      only: [ :id, :shares, :avg_cost ]
+    )
   end
 
   # POST /portfolios
   def create
+    portfolio = @current_user.portfolios.first_or_create!
     stock = Stock.find_or_create_by(symbol: params[:symbol]) do |s|
       s.name = params[:name]
       s.current_price = params[:current_price]
     end
 
-    portfolio_stock = @current_user.portfolio_stocks.find_or_initialize_by(stock: stock)
-    portfolio_stock.shares ||= 0
-    portfolio_stock.avg_cost ||= params[:avg_cost]
-    portfolio_stock.shares += params[:shares].to_i
-    portfolio_stock.save!
+    holding = portfolio.portfolio_stocks.find_or_initialize_by(stock: stock)
+    holding.shares ||= 0
+    holding.shares += params[:shares].to_i
+    holding.avg_cost = params[:avg_cost] if params[:avg_cost]
+    holding.save!
 
-    render json: {
-      id: portfolio_stock.id,
-      symbol: stock.symbol,
-      name: stock.name,
-      shares: portfolio_stock.shares,
-      avg_cost: portfolio_stock.avg_cost,
-      current_price: stock.current_price
-    }, status: :created
+    render json: holding.as_json(
+      include: {
+        stock: {
+          only: [ :id, :symbol, :name, :current_price ]
+        }
+      },
+      only: [ :id, :shares, :avg_cost ]
+    ), status: :created
   end
 
   # DELETE /portfolios/:id
   def destroy
-    ps = @current_user.portfolio_stocks.find_by(id: params[:id])
-    if ps
-      ps.destroy
+    portfolio = @current_user.portfolios.first_or_create!
+    holding = portfolio.portfolio_stocks.find_by(id: params[:id])
+
+    if holding
+      holding.destroy
       head :no_content
     else
-      render json: { error: "Stock not found in portfolio" }, status: :not_found
+      render json: { error: "Holding not found" }, status: :not_found
     end
   end
 end

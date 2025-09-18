@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_14_170724) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_18_202532) do
   create_table "locations", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "address"
@@ -24,6 +24,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_14_170724) do
     t.integer "stock_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "shares"
+    t.decimal "avg_cost"
     t.index ["portfolio_id"], name: "index_portfolio_stocks_on_portfolio_id"
     t.index ["stock_id"], name: "index_portfolio_stocks_on_stock_id"
   end
