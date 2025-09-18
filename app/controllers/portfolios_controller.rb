@@ -4,11 +4,12 @@ class PortfoliosController < ApplicationController
   # GET /portfolios
   def index
     portfolio = @current_user.default_portfolio
-    stocks = portfolio.stocks
+    holdings = portfolio.portfolio_stocks.includes(:stock)
 
     api_key = ENV["POLYGON_API_KEY"] || Rails.application.credentials.dig(:polygon, :api_key)
 
-    stocks.each do |stock|
+    holdings.each do |holding|
+      stock = holding.stock
       begin
         response = Faraday.get(
           "https://api.polygon.io/v2/aggs/ticker/#{stock.symbol}/prev",
@@ -27,7 +28,10 @@ class PortfoliosController < ApplicationController
       end
     end
 
-    render json: stocks.as_json(only: [ :id, :symbol, :name, :current_price ]), status: :ok
+    render json: holdings.as_json(
+      include: { stock: { only: [ :id, :symbol, :name, :current_price ] } },
+      only: [ :id, :shares, :avg_cost ]
+    ), status: :ok
   end
 
   # POST /portfolios
@@ -35,7 +39,7 @@ class PortfoliosController < ApplicationController
     Rails.logger.debug "📩 Incoming params for portfolio#create: #{params.inspect}"
 
     begin
-      stock_params = params.require(:portfolio).permit(:symbol, :name, :current_price)
+      stock_params = params.require(:portfolio).permit(:symbol, :name, :current_price, :shares, :avg_cost)
 
       stock = Stock.find_or_create_by!(symbol: stock_params[:symbol]) do |s|
         s.name = stock_params[:name]
@@ -44,12 +48,12 @@ class PortfoliosController < ApplicationController
 
       portfolio = @current_user.default_portfolio
 
-      unless portfolio.stocks.exists?(stock.id)
-        portfolio.stocks << stock
-        Rails.logger.debug "✅ Added stock #{stock.symbol} to portfolio #{portfolio.id}"
-      else
-        Rails.logger.debug "ℹ️ Stock #{stock.symbol} already in portfolio #{portfolio.id}"
-      end
+      holding = portfolio.portfolio_stocks.find_or_initialize_by(stock: stock)
+      holding.shares ||= stock_params[:shares] || 0
+      holding.avg_cost ||= stock_params[:avg_cost] || stock_params[:current_price] || 0
+      holding.save!
+
+      Rails.logger.debug "✅ Added/updated holding for #{stock.symbol} in portfolio #{portfolio.id}"
 
       render json: { message: "Added #{stock.symbol} to portfolio" }, status: :created
     rescue ActionController::ParameterMissing => e
@@ -66,10 +70,10 @@ class PortfoliosController < ApplicationController
     Rails.logger.debug "🗑 Incoming params for portfolio#destroy: #{params.inspect}"
 
     portfolio = @current_user.default_portfolio
-    stock = portfolio.stocks.find(params[:id])
-    portfolio.stocks.delete(stock)
+    holding = portfolio.portfolio_stocks.find(params[:id])
+    holding.destroy!
 
-    Rails.logger.debug "✅ Removed stock #{stock.symbol} from portfolio #{portfolio.id}"
+    Rails.logger.debug "✅ Removed holding #{holding.id} (#{holding.stock.symbol}) from portfolio #{portfolio.id}"
 
     head :no_content
   end
