@@ -1,65 +1,59 @@
-class StocksController < ApplicationController
-  before_action :authenticate_request, only: [ :portfolio_candles, :portfolio_summary ]
+require "faraday"
 
-  SNAPSHOT_BASE   = "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers"
-  AGGREGATES_BASE = "https://api.polygon.io/v2/aggs/ticker"
+class StocksController < ApplicationController
+  before_action :authenticate_request
 
   # GET /stocks
   def index
-    symbols = %w[AAPL MSFT TSLA AMZN GOOG META NVDA NFLX AMD INTC]
-    key = ENV["POLYGON_API_KEY"]
+    request.format = :json
+    symbols = %w[TSLA INTC MSFT NFLX META AMD NVDA GOOG AMZN AAPL]
+    api_key = ENV["POLYGON_API_KEY"]
 
-    response = Faraday.get("#{SNAPSHOT_BASE}?tickers=#{symbols.join(",")}&apiKey=#{key}")
+    results = symbols.map do |symbol|
+      response = Faraday.get(
+        "https://api.polygon.io/v2/aggs/ticker/#{symbol}/prev",
+        { apiKey: api_key }
+      )
 
-    if response.success?
-      data = JSON.parse(response.body)
-      render json: data
-    else
-      render json: { error: "Failed to fetch stocks" }, status: :bad_request
+      if response.success?
+        data = JSON.parse(response.body)
+        result = data["results"]&.first
+
+        {
+          symbol: symbol,
+          price: result ? result["c"] : nil,   # closing price
+          open: result ? result["o"] : nil,
+          high: result ? result["h"] : nil,
+          low: result ? result["l"] : nil,
+          close: result ? result["c"] : nil,
+          change: result ? (result["c"] - result["o"]) : nil,
+          change_percent: result && result["o"] ? ((result["c"] - result["o"]) / result["o"]) : nil,
+          logo_url: "https://logo.clearbit.com/#{symbol.downcase}.com"
+        }
+      else
+        { symbol: symbol, error: "API error" }
+      end
     end
-  end
-
-  # GET /stocks/:id
-  def show
-    stock = Stock.find_by(id: params[:id]) || Stock.find_by(symbol: params[:id])
-    if stock
-      render json: StockBlueprint.render(stock)
-    else
-      render json: { error: "Stock not found" }, status: :not_found
-    end
-  end
-
-  # GET /stocks/:id/candles
-  def candles
-    stock = Stock.find_by(symbol: params[:id])
-    return render json: { error: "Stock not found" }, status: :not_found unless stock
-
-    key = ENV["POLYGON_API_KEY"]
-    response = Faraday.get("#{AGGREGATES_BASE}/#{stock.symbol}/range/1/day/2024-01-01/2024-12-31?apiKey=#{key}")
-
-    if response.success?
-      render json: JSON.parse(response.body)
-    else
-      render json: { error: "Failed to fetch candles" }, status: :bad_request
-    end
-  end
-
-  # GET /portfolios/candles
-  def portfolio_candles
-    symbols = @current_user.stocks.pluck(:symbol)
-    key = ENV["POLYGON_API_KEY"]
-
-    results = symbols.map do |sym|
-      response = Faraday.get("#{AGGREGATES_BASE}/#{sym}/range/1/day/2024-01-01/2024-12-31?apiKey=#{key}")
-      [ sym, JSON.parse(response.body) ] if response.success?
-    end.compact.to_h
 
     render json: results
   end
 
-  # GET /portfolios/summary
-  def portfolio_summary
-    total_value = @current_user.stocks.sum(&:current_price)
-    render json: { total_value: total_value }
+  # GET /stocks/:id/candles
+  def candles
+    symbol = params[:id] # ✅ use :id, not :symbol
+    api_key = ENV["POLYGON_API_KEY"]
+
+    response = Faraday.get(
+      "https://api.polygon.io/v2/aggs/ticker/#{symbol}/range/1/day/2024-01-01/2025-01-01",
+      { apiKey: api_key }
+    )
+
+    if response.success?
+      body = JSON.parse(response.body)
+      render json: body["results"] || []
+    else
+      Rails.logger.error("Polygon API error for candles: #{response.status} #{response.body}")
+      render json: { error: "Failed to fetch candles" }, status: :bad_request
+    end
   end
 end

@@ -12,7 +12,7 @@ Rails.application.routes.draw do
     # --- Stocks ---
     resources :stocks, only: %i[index show] do
       member do
-        get :candles
+        get :candles # ✅ /stocks/:id/candles
       end
     end
 
