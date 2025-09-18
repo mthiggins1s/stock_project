@@ -29,6 +29,11 @@ class User < ApplicationRecord
 
   after_create :ensure_profile_and_location
 
+  # 👇 Always ensure user has a default portfolio
+  def default_portfolio
+    portfolios.first_or_create!(name: "Default Portfolio")
+  end
+
   private
 
   def ensure_profile_and_location

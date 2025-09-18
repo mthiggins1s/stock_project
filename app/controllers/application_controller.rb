@@ -12,19 +12,27 @@ class ApplicationController < ActionController::API
 
   # Call this in controllers as a before_action to protect endpoints
   def authenticate_request
-    # Extract "Bearer <token>" from Authorization header
+    # Extract Authorization header
     header = request.headers["Authorization"].to_s
-    token  = header[/\ABearer (.+)\z/, 1]
+    Rails.logger.debug "🔎 Raw Authorization header: #{header.inspect}"
+
+    # Normalize (case-insensitive, strip "Bearer ")
+    token = header.to_s.sub(/^Bearer\s+/i, "").strip
+    Rails.logger.debug "🔎 Extracted token: #{token.present? ? token[0..15] + '...' : 'nil'}"
+
     raise JWT::DecodeError, "missing token" if token.blank?
 
-    # VERIFY signature and expiration
+    # Decode + verify signature & expiration
     payload = JWT.decode(
       token,
-      Rails.application.secret_key_base,
-      true, # verify signature
+      Rails.application.secret_key_base, # must match encoding secret
+      true,                              # verify signature
       { algorithm: "HS256", verify_expiration: true }
     ).first
 
+    Rails.logger.debug "✅ Decoded JWT payload: #{payload.inspect}"
+
     @current_user = User.find(payload["user_id"])
+    Rails.logger.debug "✅ Authenticated user: #{@current_user.username} (ID=#{@current_user.id})"
   end
 end
