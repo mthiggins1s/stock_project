@@ -1,167 +1,59 @@
-require "net/http"
-require "uri"
-require "json"
+require "faraday"
 
 class StocksController < ApplicationController
-  SNAPSHOT_BASE   = "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers"
-  REFERENCE_BASE  = "https://api.polygon.io/v3/reference/tickers"
-  AGGREGATES_BASE = "https://api.polygon.io/v2/aggs/ticker"
-  USE_MOCK        = false
+  before_action :authenticate_request
 
   # GET /stocks
   def index
     request.format = :json
-    symbols = %w[AAPL MSFT TSLA AMZN GOOG META NVDA NFLX AMD INTC ORCL IBM BA CAT KO PEP
-                 JPM GS BAC WFC MS V MA UNH JNJ PFE MRK XOM CVX T VZ DIS NKE HD LOW COST
-                 WMT TGT BKNG PYPL SQ SHOP ABNB UBER LYFT SNAP]
-    key = ENV["POLYGON_API_KEY"]
+    symbols = %w[TSLA INTC MSFT NFLX META AMD NVDA GOOG AMZN AAPL]
+    api_key = ENV["POLYGON_API_KEY"]
 
-    if USE_MOCK
-      stocks = symbols.map do |s|
-        { symbol: s, name: s, price: rand(100..500) + rand.round(2), change: 0, change_percent: 0, logo_url: nil, mock: true }
+    results = symbols.map do |symbol|
+      response = Faraday.get(
+        "https://api.polygon.io/v2/aggs/ticker/#{symbol}/prev",
+        { apiKey: api_key }
+      )
+
+      if response.success?
+        data = JSON.parse(response.body)
+        result = data["results"]&.first
+
+        {
+          symbol: symbol,
+          price: result ? result["c"] : nil,   # closing price
+          open: result ? result["o"] : nil,
+          high: result ? result["h"] : nil,
+          low: result ? result["l"] : nil,
+          close: result ? result["c"] : nil,
+          change: result ? (result["c"] - result["o"]) : nil,
+          change_percent: result && result["o"] ? ((result["c"] - result["o"]) / result["o"]) : nil,
+          logo_url: "https://logo.clearbit.com/#{symbol.downcase}.com"
+        }
+      else
+        { symbol: symbol, error: "API error" }
       end
-      render json: stocks and return
     end
 
-    stocks = symbols.map { |symbol| fetch_stock(symbol, key) }.compact
-    render json: stocks
-  end
-
-  # GET /stocks/:id
-  def show
-    symbol = params[:id].upcase
-    key = ENV["POLYGON_API_KEY"]
-
-    stock = fetch_stock(symbol, key)
-
-    if stock && stock[:price].present?
-      render json: stock
-    else
-      render json: { error: "Stock not found" }, status: 404
-    end
+    render json: results
   end
 
   # GET /stocks/:id/candles
   def candles
-    symbol = params[:id].upcase
-    key = ENV["POLYGON_API_KEY"]
+    symbol = params[:id] # ✅ use :id, not :symbol
+    api_key = ENV["POLYGON_API_KEY"]
 
-    from       = params[:from]       || (Date.today - 30).to_s
-    to         = params[:to]         || Date.today.to_s
-    multiplier = params[:multiplier] || 1
-    timespan   = params[:timespan]   || "day"
+    response = Faraday.get(
+      "https://api.polygon.io/v2/aggs/ticker/#{symbol}/range/1/day/2024-01-01/2025-01-01",
+      { apiKey: api_key }
+    )
 
-    url = URI("#{AGGREGATES_BASE}/#{symbol}/range/#{multiplier}/#{timespan}/#{from}/#{to}?apiKey=#{key}")
-    response = make_request(url)
-
-    if response
-      parsed = JSON.parse(response)
-      render json: parsed["results"] || []
+    if response.success?
+      body = JSON.parse(response.body)
+      render json: body["results"] || []
     else
-      render json: { error: "Failed to fetch candles" }, status: 502
-    end
-  end
-
-  # GET /portfolio/candles
-  def portfolio_candles
-    key = ENV["POLYGON_API_KEY"]
-    portfolio = JSON.parse(params[:symbols] || "[]")
-    from       = params[:from]       || (Date.today - 30).to_s
-    to         = params[:to]         || Date.today.to_s
-    multiplier = params[:multiplier] || 1
-    timespan   = params[:timespan]   || "day"
-
-    all_candles = {}
-
-    portfolio.each do |symbol|
-      url = URI("#{AGGREGATES_BASE}/#{symbol}/range/#{multiplier}/#{timespan}/#{from}/#{to}?apiKey=#{key}")
-      response = make_request(url)
-
-      if response
-        parsed = JSON.parse(response)
-        all_candles[symbol] = parsed["results"] || []
-      else
-        all_candles[symbol] = []
-      end
-    end
-
-    render json: all_candles
-  end
-
-  # ✅ NEW: GET /portfolio/summary
-  def portfolio_summary
-    key = ENV["POLYGON_API_KEY"]
-    portfolio = JSON.parse(params[:symbols] || "[]")
-
-    total_value = 0.0
-    total_gains = 0.0
-    total_losses = 0.0
-
-    portfolio.each do |symbol|
-      stock = fetch_stock(symbol, key)
-      next unless stock && stock[:price]
-
-      total_value += stock[:price]
-
-      if stock[:change].to_f > 0
-        total_gains += stock[:change].to_f
-      else
-        total_losses += stock[:change].to_f
-      end
-    end
-
-    render json: {
-      total_value: total_value.round(2),
-      gains: total_gains.round(2),
-      losses: total_losses.round(2)
-    }
-  end
-
-  private
-
-  def fetch_stock(symbol, key)
-    snapshot_url = URI("#{SNAPSHOT_BASE}/#{symbol}?apiKey=#{key}")
-    ref_url = URI("#{REFERENCE_BASE}/#{symbol}?apiKey=#{key}")
-
-    snapshot_res = make_request(snapshot_url)
-    ref_res = make_request(ref_url)
-
-    return nil unless snapshot_res
-
-    snapshot_data = JSON.parse(snapshot_res)["ticker"]
-    ref_data = ref_res ? JSON.parse(ref_res)["results"] : {}
-
-    if snapshot_data
-      {
-        symbol: snapshot_data["ticker"],
-        name: ref_data["name"] || snapshot_data["ticker"],
-        price: snapshot_data.dig("lastTrade", "p") || snapshot_data.dig("day", "c"),
-        change: snapshot_data["todaysChange"],
-        change_percent: snapshot_data["todaysChangePerc"],
-        logo_url: ref_data.dig("branding", "logo_url")
-      }
-    else
-      nil
-    end
-  end
-
-  def make_request(url, limit = 5)
-    raise "Too many HTTP redirects" if limit == 0
-
-    http = Net::HTTP.new(url.host, url.port)
-    http.use_ssl = true
-    request = Net::HTTP::Get.new(url)
-
-    response = http.request(request)
-    case response
-    when Net::HTTPSuccess
-      response.body
-    when Net::HTTPRedirection
-      location = URI(response["location"])
-      make_request(location, limit - 1)
-    else
-      Rails.logger.warn "⚠️ Request failed for #{url} -> #{response.code} #{response.message}"
-      nil
+      Rails.logger.error("Polygon API error for candles: #{response.status} #{response.body}")
+      render json: { error: "Failed to fetch candles" }, status: :bad_request
     end
   end
 end

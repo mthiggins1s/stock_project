@@ -1,13 +1,9 @@
-# frozen_string_literal: true
-
 class UserBlueprint < Blueprinter::Base
-  identifier :id
+  identifier :public_id
 
-  view :normal do
-    fields :username
-  end
+  fields :username, :first_name, :last_name, :email, :created_at, :updated_at
 
-  view :profile do
-    association :location, blueprint: LocationBlueprint
+  view :extended do
+    association :portfolios, blueprint: PortfolioBlueprint
   end
 end
