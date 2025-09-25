@@ -3,20 +3,29 @@ Rails.application.routes.draw do
     # --- Auth ---
     post "/login", to: "sessions#create"
 
+    # --- Current User ---
+    get "/me", to: "users#me"
+
     # --- Users ---
     resources :users, except: %i[new edit]
 
-    # --- Stocks (public) ---
-    resources :stocks, only: %i[index show]
+    # --- Stocks ---
+    resources :stocks, only: %i[index show] do
+      member do
+        get :candles
+      end
+    end
 
-    # --- Portfolio (JWT protected) ---
-    resources :portfolios, only: %i[index create destroy]
+    # --- Portfolio ---
+    resources :portfolios, only: %i[index create destroy] do
+      collection do
+        get :candles, to: "stocks#portfolio_candles"
+        get :summary, to: "stocks#portfolio_summary"
+      end
+    end
 
     # --- Profiles ---
-    # Private (username lookup, requires auth)
     get "/profiles/:username", to: "profiles#show", as: :profile
-
-    # Public (public_id lookup, no auth)
     get "/profiles/public/:public_id", to: "profiles#show_public"
     get "/profiles/public/:public_id/portfolio", to: "profiles#portfolio"
   end

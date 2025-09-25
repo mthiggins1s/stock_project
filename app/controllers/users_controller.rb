@@ -1,14 +1,17 @@
 class UsersController < ApplicationController
-  # Keep signup public; everything else requires a valid JWT
+  # Signup is public; everything else requires a valid JWT
   before_action :authenticate_request, except: [ :create ]
   before_action :set_user, only: [ :show, :update, :destroy ]
 
+  # === CURRENT USER ===
+  def me
+    render json: UserBlueprint.render(@current_user, view: :normal), status: :ok
+  end
+
   # === LIST (safe) ===
   def index
-    # Only expose safe columns; never leak password_digest/email/etc.
     users = User.select(:id, :username, :first_name, :last_name).order(:id)
     render json: users, status: :ok
-    # (Alt explicit) render json: users.as_json(only: %i[id username first_name last_name])
   end
 
   # === SHOW (consistent shape) ===
@@ -20,7 +23,6 @@ class UsersController < ApplicationController
   def create
     user = User.new(user_params)
     if user.save
-      # Return the same compact shape your FE expects
       render json: UserBlueprint.render(user, view: :normal), status: :created
     else
       render json: {
@@ -59,9 +61,8 @@ class UsersController < ApplicationController
     @user = User.find(params[:id])
   end
 
-  # NOTE: This expects a WRAPPED payload:
-  # { "user": { "username": "...", "email": "...", ... } }
   def user_params
-    params.require(:user).permit(:username, :email, :first_name, :last_name, :password, :password_confirmation)
+    params.require(:user)
+          .permit(:username, :email, :first_name, :last_name, :password, :password_confirmation)
   end
 end

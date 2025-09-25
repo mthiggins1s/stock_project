@@ -3,39 +3,38 @@ require "uri"
 require "json"
 
 class StocksController < ApplicationController
-  BASE_URL = "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers"
-  USE_MOCK = false # 🔥 flip to true for fake prices during dev
+  SNAPSHOT_BASE   = "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers"
+  REFERENCE_BASE  = "https://api.polygon.io/v3/reference/tickers"
+  AGGREGATES_BASE = "https://api.polygon.io/v2/aggs/ticker"
+  USE_MOCK        = false
 
   # GET /stocks
   def index
     request.format = :json
-    symbols = %w[AAPL TSLA MSFT AMZN GOOG]
-    key = ENV["POLYGON_API_KEY"] || "0Q7EjcdhNI7i3bPbJ5Vg5usCKhocBNFV"
+    symbols = %w[AAPL MSFT TSLA AMZN GOOG META NVDA NFLX AMD INTC ORCL IBM BA CAT KO PEP
+                 JPM GS BAC WFC MS V MA UNH JNJ PFE MRK XOM CVX T VZ DIS NKE HD LOW COST
+                 WMT TGT BKNG PYPL SQ SHOP ABNB UBER LYFT SNAP]
+    key = ENV["POLYGON_API_KEY"]
 
     if USE_MOCK
-      stocks = symbols.map { |s| { symbol: s, price: rand(100..500) + rand.round(2), mock: true } }
+      stocks = symbols.map do |s|
+        { symbol: s, name: s, price: rand(100..500) + rand.round(2), change: 0, change_percent: 0, logo_url: nil, mock: true }
+      end
       render json: stocks and return
     end
 
-    stocks = symbols.map do |symbol|
-      fetch_stock(symbol, key)
-    end
-
+    stocks = symbols.map { |symbol| fetch_stock(symbol, key) }.compact
     render json: stocks
   end
 
   # GET /stocks/:id
   def show
     symbol = params[:id].upcase
-    key = ENV["POLYGON_API_KEY"] || "0Q7EjcdhNI7i3bPbJ5Vg5usCKhocBNFV"
-
-    if USE_MOCK
-      render json: { symbol: symbol, price: rand(100..500) + rand.round(2), mock: true } and return
-    end
+    key = ENV["POLYGON_API_KEY"]
 
     stock = fetch_stock(symbol, key)
 
-    if stock[:price].present?
+    if stock && stock[:price].present?
       render json: stock
     else
       render json: { error: "Stock not found" }, status: 404
@@ -47,8 +46,12 @@ class StocksController < ApplicationController
     symbol = params[:id].upcase
     key = ENV["POLYGON_API_KEY"]
 
-    # Example: last 30 days, 1-day candles
-    url = URI("https://api.polygon.io/v2/aggs/ticker/#{symbol}/range/1/day/2024-07-01/2024-08-01?apiKey=#{key}")
+    from       = params[:from]       || (Date.today - 30).to_s
+    to         = params[:to]         || Date.today.to_s
+    multiplier = params[:multiplier] || 1
+    timespan   = params[:timespan]   || "day"
+
+    url = URI("#{AGGREGATES_BASE}/#{symbol}/range/#{multiplier}/#{timespan}/#{from}/#{to}?apiKey=#{key}")
     response = make_request(url)
 
     if response
@@ -59,28 +62,86 @@ class StocksController < ApplicationController
     end
   end
 
+  # GET /portfolio/candles
+  def portfolio_candles
+    key = ENV["POLYGON_API_KEY"]
+    portfolio = JSON.parse(params[:symbols] || "[]")
+    from       = params[:from]       || (Date.today - 30).to_s
+    to         = params[:to]         || Date.today.to_s
+    multiplier = params[:multiplier] || 1
+    timespan   = params[:timespan]   || "day"
+
+    all_candles = {}
+
+    portfolio.each do |symbol|
+      url = URI("#{AGGREGATES_BASE}/#{symbol}/range/#{multiplier}/#{timespan}/#{from}/#{to}?apiKey=#{key}")
+      response = make_request(url)
+
+      if response
+        parsed = JSON.parse(response)
+        all_candles[symbol] = parsed["results"] || []
+      else
+        all_candles[symbol] = []
+      end
+    end
+
+    render json: all_candles
+  end
+
+  # ✅ NEW: GET /portfolio/summary
+  def portfolio_summary
+    key = ENV["POLYGON_API_KEY"]
+    portfolio = JSON.parse(params[:symbols] || "[]")
+
+    total_value = 0.0
+    total_gains = 0.0
+    total_losses = 0.0
+
+    portfolio.each do |symbol|
+      stock = fetch_stock(symbol, key)
+      next unless stock && stock[:price]
+
+      total_value += stock[:price]
+
+      if stock[:change].to_f > 0
+        total_gains += stock[:change].to_f
+      else
+        total_losses += stock[:change].to_f
+      end
+    end
+
+    render json: {
+      total_value: total_value.round(2),
+      gains: total_gains.round(2),
+      losses: total_losses.round(2)
+    }
+  end
+
   private
 
   def fetch_stock(symbol, key)
-    url = URI("#{BASE_URL}/#{symbol}?apiKey=#{key}")
-    response = make_request(url)
+    snapshot_url = URI("#{SNAPSHOT_BASE}/#{symbol}?apiKey=#{key}")
+    ref_url = URI("#{REFERENCE_BASE}/#{symbol}?apiKey=#{key}")
 
-    if response
-      parsed = JSON.parse(response)
-      data = parsed["ticker"]
+    snapshot_res = make_request(snapshot_url)
+    ref_res = make_request(ref_url)
 
-      if data
-        {
-          symbol: data["ticker"],
-          price: data.dig("lastTrade", "p") || data.dig("day", "c"),
-          change: data["todaysChange"],
-          change_percent: data["todaysChangePerc"]
-        }
-      else
-        { symbol: symbol, price: nil }
-      end
+    return nil unless snapshot_res
+
+    snapshot_data = JSON.parse(snapshot_res)["ticker"]
+    ref_data = ref_res ? JSON.parse(ref_res)["results"] : {}
+
+    if snapshot_data
+      {
+        symbol: snapshot_data["ticker"],
+        name: ref_data["name"] || snapshot_data["ticker"],
+        price: snapshot_data.dig("lastTrade", "p") || snapshot_data.dig("day", "c"),
+        change: snapshot_data["todaysChange"],
+        change_percent: snapshot_data["todaysChangePerc"],
+        logo_url: ref_data.dig("branding", "logo_url")
+      }
     else
-      { symbol: symbol, price: nil }
+      nil
     end
   end
 
@@ -91,18 +152,15 @@ class StocksController < ApplicationController
     http.use_ssl = true
     request = Net::HTTP::Get.new(url)
 
-    Rails.logger.info "🔎 Polygon Request URL: #{url}"
     response = http.request(request)
-
     case response
     when Net::HTTPSuccess
       response.body
     when Net::HTTPRedirection
       location = URI(response["location"])
-      Rails.logger.warn "🔀 Redirected to #{location}"
       make_request(location, limit - 1)
     else
-      Rails.logger.error "❌ HTTP Error: #{response.code} #{response.message}"
+      Rails.logger.warn "⚠️ Request failed for #{url} -> #{response.code} #{response.message}"
       nil
     end
   end
