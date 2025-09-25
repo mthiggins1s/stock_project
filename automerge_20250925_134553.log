@@ -1,0 +1,77 @@
+=== Auto-merging into main (prefer theirs) ===
+Your branch is up to date with 'origin/main'.
+Already up to date.
+Safety tag created: pre-automerge-20250925_134553
+---- Merging 'adding-a-new-route-(portfolio)' into main ----
+✅ Clean merge: adding-a-new-route-(portfolio)
+---- Merging 'adding-public-id-viewing-on-the-dashboard' into main ----
+✅ Clean merge: adding-public-id-viewing-on-the-dashboard
+---- Merging 'adding-route-for-"portfolio"' into main ----
+✅ Clean merge: adding-route-for-"portfolio"
+---- Merging 'authenticating-user-requests' into main ----
+✅ Clean merge: authenticating-user-requests
+---- Merging 'backend-logic-for-login-functionality' into main ----
+✅ Clean merge: backend-logic-for-login-functionality
+---- Merging 'convert-stocks-to-json-and-provide-a-route-for-stocks' into main ----
+✅ Clean merge: convert-stocks-to-json-and-provide-a-route-for-stocks
+---- Merging 'creating-new-merge' into main ----
+✅ Clean merge: creating-new-merge
+---- Merging 'creating-the-users-controller' into main ----
+✅ Clean merge: creating-the-users-controller
+---- Merging 'creating-the-users-table' into main ----
+✅ Clean merge: creating-the-users-table
+---- Merging 'deployment-setup' into main ----
+✅ Clean merge: deployment-setup
+---- Merging 'enforce-jwt-verification' into main ----
+✅ Clean merge: enforce-jwt-verification
+---- Merging 'ensure_profile-callback' into main ----
+✅ Clean merge: ensure_profile-callback
+---- Merging 'fix-routes' into main ----
+✅ Clean merge: fix-routes
+---- Merging 'fixing-placeholder-values' into main ----
+✅ Clean merge: fixing-placeholder-values
+---- Merging 'fixing-public_id' into main ----
+✅ Clean merge: fixing-public_id
+---- Merging 'fixing-schema-file' into main ----
+✅ Clean merge: fixing-schema-file
+---- Merging 'fixing-stock-controller-to-not-hard-code-stock-fetching' into main ----
+✅ Clean merge: fixing-stock-controller-to-not-hard-code-stock-fetching
+---- Merging 'fixing-the-401-error' into main ----
+✅ Clean merge: fixing-the-401-error
+---- Merging 'fixing-the-api-bad-gateway' into main ----
+✅ Clean merge: fixing-the-api-bad-gateway
+---- Merging 'harden-users#index' into main ----
+✅ Clean merge: harden-users#index
+---- Merging 'login-action-and-jwt' into main ----
+✅ Clean merge: login-action-and-jwt
+---- Merging 'main-backup' into main ----
+✅ Clean merge: main-backup
+---- Merging 'model-migration-and-generation' into main ----
+✅ Clean merge: model-migration-and-generation
+---- Merging 'profile-changes-and-modifications' into main ----
+✅ Clean merge: profile-changes-and-modifications
+---- Merging 'rack-cors-unlock-to-move-to-frontend' into main ----
+✅ Clean merge: rack-cors-unlock-to-move-to-frontend
+---- Merging 'removing-users-controller' into main ----
+✅ Clean merge: removing-users-controller
+---- Merging 'restarting-from-broken-merge' into main ----
+✅ Clean merge: restarting-from-broken-merge
+---- Merging 'routes-cleanup' into main ----
+✅ Clean merge: routes-cleanup
+---- Merging 'serializing-data-with-blueprinter' into main ----
+✅ Clean merge: serializing-data-with-blueprinter
+---- Merging 'setting-up-BCrypt-to-Hash-User-Passwords' into main ----
+✅ Clean merge: setting-up-BCrypt-to-Hash-User-Passwords
+---- Merging 'setting-up-a-new-api' into main ----
+✅ Clean merge: setting-up-a-new-api
+---- Merging 'setting-up-api-for-deployment' into main ----
+✅ Clean merge: setting-up-api-for-deployment
+---- Merging 'snycing-users-to-a-public-id' into main ----
+✅ Clean merge: snycing-users-to-a-public-id
+---- Merging 'unique-userid-for-portfolio-sharing' into main ----
+✅ Clean merge: unique-userid-for-portfolio-sharing
+---- Merging 'using-bcrypt-to-hash-user-passwords' into main ----
+✅ Clean merge: using-bcrypt-to-hash-user-passwords
+⬆️  Pushing main…
+✅ Done. Pre-merge safety tag: pre-automerge-20250925_134553
+🗒️  Log: automerge_20250925_134553.log
