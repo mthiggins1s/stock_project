@@ -1,5 +1,7 @@
 class Portfolio < ApplicationRecord
   belongs_to :user
-  has_many :portfolio_stocks, dependent: :destroy
-  has_many :stocks, through: :portfolio_stocks
+  belongs_to :stock
+
+  validates :shares, numericality: { greater_than_or_equal_to: 0 }
+  validates :avg_cost, numericality: { greater_than_or_equal_to: 0 }
 end

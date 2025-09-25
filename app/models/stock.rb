@@ -1,7 +1,4 @@
 class Stock < ApplicationRecord
-  has_many :portfolio_stocks, dependent: :destroy
-  has_many :portfolios, through: :portfolio_stocks
-  has_many :recently_vieweds, dependent: :destroy
-
-  validates :symbol, presence: true, uniqueness: true
+  has_many :portfolios, dependent: :destroy
+  has_many :users, through: :portfolios
 end

@@ -1,55 +1,108 @@
+require "faraday"
+
 class PortfoliosController < ApplicationController
-  before_action :authenticate_request
+  before_action :authenticate_request # ✅ require JWT
 
   # GET /portfolios
   def index
-    portfolio = @current_user.portfolios.first_or_create!
-    holdings = portfolio.portfolio_stocks.includes(:stock)
+    portfolios = @current_user.portfolios.includes(:stock)
 
-    render json: holdings.as_json(
+    api_key = ENV["POLYGON_API_KEY"] || Rails.application.credentials.dig(:polygon, :api_key)
+
+    portfolios.each do |p|
+      next if p.stock.nil? # ✅ skip bad rows
+
+      begin
+        response = Faraday.get(
+          "https://api.polygon.io/v2/aggs/ticker/#{p.stock.symbol}/prev",
+          { apiKey: api_key }
+        )
+
+        if response.success?
+          data = JSON.parse(response.body)
+          price = data.dig("results", 0, "c") # "c" = close price
+          p.stock.update!(current_price: price) if price.present?
+        else
+          Rails.logger.warn "Polygon API error for #{p.stock.symbol}: #{response.status}"
+        end
+      rescue => e
+        Rails.logger.error "Failed to update #{p.stock&.symbol}: #{e.message}"
+      end
+    end
+
+    render json: portfolios.as_json(
+      only: [ :id, :shares, :avg_cost ],
       include: {
-        stock: {
-          only: [ :id, :symbol, :name, :current_price ]
-        }
-      },
-      only: [ :id, :shares, :avg_cost ]
-    )
+        stock: { only: [ :id, :symbol, :name, :current_price ] }
+      }
+    ), status: :ok
   end
 
   # POST /portfolios
   def create
-    portfolio = @current_user.portfolios.first_or_create!
-    stock = Stock.find_or_create_by(symbol: params[:symbol]) do |s|
-      s.name = params[:name]
-      s.current_price = params[:current_price]
+    # Find or create the stock by symbol
+    stock = Stock.find_or_create_by!(symbol: params[:portfolio][:symbol]) do |s|
+      s.name = params[:portfolio][:name]
+      s.current_price = params[:portfolio][:current_price]
     end
 
-    holding = portfolio.portfolio_stocks.find_or_initialize_by(stock: stock)
-    holding.shares ||= 0
-    holding.shares += params[:shares].to_i
-    holding.avg_cost = params[:avg_cost] if params[:avg_cost]
-    holding.save!
+    # Check if the user already has this stock in portfolio
+    portfolio = @current_user.portfolios.find_by(stock: stock)
 
-    render json: holding.as_json(
-      include: {
-        stock: {
-          only: [ :id, :symbol, :name, :current_price ]
+    if portfolio
+      # ✅ Update existing holding (add to shares and recalc avg cost)
+      total_shares = portfolio.shares + params[:portfolio][:shares].to_i
+      portfolio.avg_cost = (
+        (portfolio.avg_cost * portfolio.shares + params[:portfolio][:avg_cost].to_f * params[:portfolio][:shares].to_i) / total_shares
+      )
+      portfolio.shares = total_shares
+    else
+      # ✅ Create a new holding
+      portfolio = @current_user.portfolios.new(
+        stock: stock,
+        shares: params[:portfolio][:shares],
+        avg_cost: params[:portfolio][:avg_cost]
+      )
+    end
+
+    if portfolio.save
+      render json: portfolio.as_json(
+        only: [ :id, :shares, :avg_cost ],
+        include: {
+          stock: { only: [ :id, :symbol, :name, :current_price ] }
         }
-      },
-      only: [ :id, :shares, :avg_cost ]
-    ), status: :created
+      ), status: :created
+    else
+      render json: { errors: portfolio.errors.full_messages }, status: :unprocessable_entity
+    end
+  end
+
+  # PUT /portfolios/:id
+  def update
+    portfolio = @current_user.portfolios.find(params[:id])
+
+    if portfolio.update(portfolio_params)
+      render json: portfolio.as_json(
+        only: [ :id, :shares, :avg_cost ],
+        include: {
+          stock: { only: [ :id, :symbol, :name, :current_price ] }
+        }
+      ), status: :ok
+    else
+      render json: { errors: portfolio.errors.full_messages }, status: :unprocessable_entity
+    end
   end
 
   # DELETE /portfolios/:id
   def destroy
-    portfolio = @current_user.portfolios.first_or_create!
-    holding = portfolio.portfolio_stocks.find_by(id: params[:id])
+    portfolio = @current_user.portfolios.find(params[:id])
+    portfolio.destroy
+    head :no_content
+  end
 
-    if holding
-      holding.destroy
-      head :no_content
-    else
-      render json: { error: "Holding not found" }, status: :not_found
-    end
+  private
+
+  def portfolio_params
+    params.require(:portfolio).permit(:stock_id, :shares, :avg_cost)
   end
 end

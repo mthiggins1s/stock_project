@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_18_202532) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_15_163939) do
   create_table "locations", force: :cascade do |t|
     t.integer "user_id", null: false
     t.string "address"
@@ -19,22 +19,15 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_18_202532) do
     t.index ["user_id"], name: "index_locations_on_user_id"
   end
 
-  create_table "portfolio_stocks", force: :cascade do |t|
-    t.integer "portfolio_id", null: false
-    t.integer "stock_id", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.integer "shares"
-    t.decimal "avg_cost"
-    t.index ["portfolio_id"], name: "index_portfolio_stocks_on_portfolio_id"
-    t.index ["stock_id"], name: "index_portfolio_stocks_on_stock_id"
-  end
-
   create_table "portfolios", force: :cascade do |t|
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
+    t.integer "shares", default: 0, null: false
+    t.decimal "avg_cost", precision: 10, scale: 2, default: "0.0", null: false
+    t.integer "stock_id"
+    t.index ["stock_id"], name: "index_portfolios_on_stock_id"
     t.index ["user_id"], name: "index_portfolios_on_user_id"
   end
 
@@ -78,8 +71,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_18_202532) do
   end
 
   add_foreign_key "locations", "users"
-  add_foreign_key "portfolio_stocks", "portfolios"
-  add_foreign_key "portfolio_stocks", "stocks"
+  add_foreign_key "portfolios", "stocks"
   add_foreign_key "portfolios", "users"
   add_foreign_key "profiles", "users"
   add_foreign_key "recently_vieweds", "stocks"
